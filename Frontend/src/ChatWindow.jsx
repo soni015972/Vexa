@@ -9,6 +9,8 @@ function ChatWindow() {
     const [loading, setLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
 
+    const BACKEND_URL = import.meta.env.VITE_API_URL || "https://vexa-rb09.onrender.com";
+
     const getReply = async () => {
         setLoading(true);
         setNewChat(false);
@@ -25,7 +27,7 @@ function ChatWindow() {
         };
 
         try {
-            const response = await fetch("http://localhost:8080/api/chat", options);
+            const response = await fetch(`${BACKEND_URL}/api/chat`, options);
             const res = await response.json();
             setReply(res.reply);
         } catch(err) {
