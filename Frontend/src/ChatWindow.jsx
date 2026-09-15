@@ -13,7 +13,6 @@ function ChatWindow() {
         setLoading(true);
         setNewChat(false);
 
-        console.log("message ", prompt, " threadId ", currThreadId);
         const options = {
             method: "POST",
             headers: {
@@ -28,7 +27,6 @@ function ChatWindow() {
         try {
             const response = await fetch("http://localhost:8080/api/chat", options);
             const res = await response.json();
-            console.log(res);
             setReply(res.reply);
         } catch(err) {
             console.log(err);
@@ -36,7 +34,7 @@ function ChatWindow() {
         setLoading(false);
     }
 
-    //Append new chat to prevChats
+    // Append new chat to prevChats
     useEffect(() => {
         if(prompt && reply) {
             setPrevChats(prevChats => (
@@ -49,10 +47,8 @@ function ChatWindow() {
                 }]
             ));
         }
-
         setPrompt("");
     }, [reply]);
-
 
     const handleProfileClick = () => {
         setIsOpen(!isOpen);
@@ -60,42 +56,52 @@ function ChatWindow() {
 
     return (
         <div className="chatWindow">
+            {/* Navbar */}
             <div className="navbar">
-                <span>SigmaGPT <i className="fa-solid fa-chevron-down"></i></span>
+                <div className="navbar-title">
+                    <span className="brand-name">Vexa</span>
+                    <i className="fa-solid fa-chevron-down"></i>
+                </div>
                 <div className="userIconDiv" onClick={handleProfileClick}>
                     <span className="userIcon"><i className="fa-solid fa-user"></i></span>
                 </div>
             </div>
+
+            {/* Profile Dropdown */}
             {
                 isOpen && 
                 <div className="dropDown">
-                    <div className="dropDownItem"><i class="fa-solid fa-gear"></i> Settings</div>
-                    <div className="dropDownItem"><i class="fa-solid fa-cloud-arrow-up"></i> Upgrade plan</div>
-                    <div className="dropDownItem"><i class="fa-solid fa-arrow-right-from-bracket"></i> Log out</div>
+                    <div className="dropDownItem"><i className="fa-solid fa-gear"></i> Settings</div>
+                    <div className="dropDownItem"><i className="fa-solid fa-cloud-arrow-up"></i> Upgrade plan</div>
+                    <div className="dropDownItem"><i className="fa-solid fa-arrow-right-from-bracket"></i> Log out</div>
                 </div>
             }
+
+            {/* Chat Messages */}
             <Chat></Chat>
 
-            <ScaleLoader color="#fff" loading={loading}>
-            </ScaleLoader>
+            {/* Loader */}
+            <ScaleLoader color="#a78bfa" loading={loading} height={20} width={3} margin={3}></ScaleLoader>
             
+            {/* Input Area */}
             <div className="chatInput">
                 <div className="inputBox">
-                    <input placeholder="Ask anything"
+                    <input 
+                        placeholder="Ask Vexa anything..."
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter'? getReply() : ''}
-                    >
-                           
-                    </input>
-                    <div id="submit" onClick={getReply}><i className="fa-solid fa-paper-plane"></i></div>
+                        onKeyDown={(e) => e.key === 'Enter' ? getReply() : ''}
+                    />
+                    <div id="submit" onClick={getReply}>
+                        <i className="fa-solid fa-paper-plane"></i>
+                    </div>
                 </div>
                 <p className="info">
-                    SigmaGPT can make mistakes. Check important info. See Cookie Preferences.
+                    Vexa can make mistakes. Check important info.
                 </p>
             </div>
         </div>
     )
 }
 
-export default ChatWindow;
+export default ChatWindow;

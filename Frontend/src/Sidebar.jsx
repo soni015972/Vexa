@@ -11,7 +11,6 @@ function Sidebar() {
             const response = await fetch("http://localhost:8080/api/thread");
             const res = await response.json();
             const filteredData = res.map(thread => ({threadId: thread.threadId, title: thread.title}));
-            //console.log(filteredData);
             setAllThreads(filteredData);
         } catch(err) {
             console.log(err);
@@ -33,11 +32,9 @@ function Sidebar() {
 
     const changeThread = async (newThreadId) => {
         setCurrThreadId(newThreadId);
-
         try {
             const response = await fetch(`http://localhost:8080/api/thread/${newThreadId}`);
             const res = await response.json();
-            console.log(res);
             setPrevChats(res);
             setNewChat(false);
             setReply(null);
@@ -51,14 +48,10 @@ function Sidebar() {
             const response = await fetch(`http://localhost:8080/api/thread/${threadId}`, {method: "DELETE"});
             const res = await response.json();
             console.log(res);
-
-            //updated threads re-render
             setAllThreads(prev => prev.filter(thread => thread.threadId !== threadId));
-
             if(threadId === currThreadId) {
                 createNewChat();
             }
-
         } catch(err) {
             console.log(err);
         }
@@ -66,23 +59,30 @@ function Sidebar() {
 
     return (
         <section className="sidebar">
-            <button onClick={createNewChat}>
-                <img src="src/assets/blacklogo.png" alt="gpt logo" className="logo"></img>
-                <span><i className="fa-solid fa-pen-to-square"></i></span>
+            {/* New Chat Button */}
+            <button className="new-chat-btn" onClick={createNewChat}>
+                <div className="logo-wrap">
+                    <span className="logo-sparkle">✦</span>
+                    <span className="logo-text">New chat</span>
+                </div>
+                <span className="edit-icon"><i className="fa-solid fa-pen-to-square"></i></span>
             </button>
 
-
+            {/* Chat History */}
+            {allThreads?.length > 0 && (
+                <p className="history-label">Recent</p>
+            )}
             <ul className="history">
                 {
                     allThreads?.map((thread, idx) => (
                         <li key={idx} 
-                            onClick={(e) => changeThread(thread.threadId)}
-                            className={thread.threadId === currThreadId ? "highlighted": " "}
+                            onClick={() => changeThread(thread.threadId)}
+                            className={thread.threadId === currThreadId ? "highlighted" : ""}
                         >
                             {thread.title}
                             <i className="fa-solid fa-trash"
                                 onClick={(e) => {
-                                    e.stopPropagation(); //stop event bubbling
+                                    e.stopPropagation();
                                     deleteThread(thread.threadId);
                                 }}
                             ></i>
@@ -90,12 +90,12 @@ function Sidebar() {
                     ))
                 }
             </ul>
- 
+
             <div className="sign">
-                <p>By ApnaCollege &hearts;</p>
+                <p>Vexa – Your AI. Your way. ♥</p>
             </div>
         </section>
     )
 }
 
-export default Sidebar;
+export default Sidebar;
