@@ -15,7 +15,7 @@ function Chat() {
     }, [prevChats, latestReply]);
 
     useEffect(() => {
-        if(reply === null) {
+        if (!reply || typeof reply !== "string") {
             setLatestReply(null);
             return;
         }

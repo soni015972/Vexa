@@ -43,17 +43,24 @@ function ChatWindow() {
         };
 
         try {
+            setReply(null);
             const response = await fetch(`${BACKEND_URL}/api/chat`, options);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || `HTTP error ${response.status}`);
+            }
             const res = await response.json();
-            setReply(res.reply);
-            setPrevChats(prev => [...prev, { role: "assistant", content: res.reply }]);
+            const replyText = typeof res.reply === "string" ? res.reply : (res.error || "No response received.");
+            setReply(replyText);
+            setPrevChats(prev => [...prev, { role: "assistant", content: replyText }]);
         } catch(err) {
-            console.log(err);
+            console.error("Chat fetch error:", err);
             const errMsg = "Sorry, failed to get a response. Please check your connection.";
             setReply(errMsg);
             setPrevChats(prev => [...prev, { role: "assistant", content: errMsg }]);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }
 
     const handleProfileClick = () => {
