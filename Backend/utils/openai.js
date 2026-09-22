@@ -18,10 +18,12 @@ async function getAvailableGeminiModels(geminiKey) {
                 .filter(name => !name.includes("tts") && !name.includes("embedding") && !name.includes("imagen"));
 
             if (valid.length > 0) {
-                // Prioritize recommended flash models
+                // Prioritize recommended flash models (e.g. 3.6-flash, 2.0-flash)
                 valid.sort((a, b) => {
-                    if (a.includes("3.0-flash") || a.includes("3-flash")) return -1;
-                    if (b.includes("3.0-flash") || b.includes("3-flash")) return 1;
+                    if (a.includes("3.6-flash") || a.includes("3.6")) return -1;
+                    if (b.includes("3.6-flash") || b.includes("3.6")) return 1;
+                    if (a.includes("2.0-flash")) return -1;
+                    if (b.includes("2.0-flash")) return 1;
                     if (a.includes("flash")) return -1;
                     if (b.includes("flash")) return 1;
                     return 0;
@@ -37,9 +39,9 @@ async function getAvailableGeminiModels(geminiKey) {
         console.error("Failed to list Gemini models:", err);
     }
     return [
-        "gemini-3.0-flash",
+        "gemini-3.6-flash",
+        "gemini-2.0-flash",
         "gemini-2.5-flash",
-        "gemini-1.5-flash-8b",
         "gemini-1.5-flash"
     ];
 }
@@ -49,7 +51,7 @@ async function callGeminiModel(model, geminiKey, geminiContents) {
     const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(6000),
+        signal: AbortSignal.timeout(10000),
         body: JSON.stringify({
             system_instruction: {
                 parts: [{ text: "You are Vexa, an intelligent, friendly, and helpful AI assistant. Always answer directly, clearly, and concisely in clean markdown. Remember and reference previous conversation context naturally when relevant. Never show internal brainstorming, scratchpad notes, draft options, or meta-commentary." }]
@@ -108,13 +110,10 @@ const getOpenAIAPIResponse = async (message, history = []) => {
             }
         }
 
-        // Parallel Race: query top models concurrently, fastest one wins instantly!
-        const candidateModels = [
-            "gemini-3.0-flash",
-            "gemini-2.5-flash",
-            "gemini-1.5-flash",
-            "gemini-1.5-flash-8b"
-        ];
+        // Parallel Race: dynamically discover available models for this key, then race the top candidates
+        const availableModels = await getAvailableGeminiModels(geminiKey);
+        const candidateModels = availableModels.slice(0, 3);
+        console.log("Racing candidate Gemini models:", candidateModels);
 
         try {
             const winner = await Promise.any(

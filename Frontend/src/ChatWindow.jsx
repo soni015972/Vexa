@@ -11,6 +11,11 @@ function ChatWindow() {
 
     const BACKEND_URL = import.meta.env.VITE_API_URL || "https://vexa-rb09.onrender.com";
 
+    useEffect(() => {
+        // Wake up backend container immediately if sleeping on Render free tier
+        fetch(`${BACKEND_URL}/api/ping`).catch(() => {});
+    }, [BACKEND_URL]);
+
     const getReply = async () => {
         const userMessage = prompt.trim();
         if (!userMessage || loading) return;

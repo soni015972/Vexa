@@ -8,6 +8,11 @@ import "highlight.js/styles/github-dark.css";
 function Chat() {
     const {newChat, prevChats, reply} = useContext(MyContext);
     const [latestReply, setLatestReply] = useState(null);
+    const bottomRef = React.useRef(null);
+
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [prevChats, latestReply]);
 
     useEffect(() => {
         if(reply === null) {
@@ -18,17 +23,22 @@ function Chat() {
         if(!prevChats?.length) return;
 
         const content = reply.split(" ");
-
         let idx = 0;
+        // Adaptive speed: reveal in smooth chunks so animation completes in < 500ms
+        const step = Math.max(1, Math.ceil(content.length / 35));
         const interval = setInterval(() => {
-            setLatestReply(content.slice(0, idx+1).join(" "));
-            idx++;
-            if(idx >= content.length) clearInterval(interval);
-        }, 15);
+            idx += step;
+            if (idx >= content.length) {
+                setLatestReply(reply);
+                clearInterval(interval);
+            } else {
+                setLatestReply(content.slice(0, idx).join(" "));
+            }
+        }, 12);
 
         return () => clearInterval(interval);
 
-    }, [prevChats, reply])
+    }, [prevChats, reply]);
 
     return (
         <div className="chats">
@@ -54,6 +64,7 @@ function Chat() {
                     }
                 })
             }
+            <div ref={bottomRef} />
         </div>
     )
 }

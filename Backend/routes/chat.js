@@ -4,6 +4,11 @@ import getOpenAIAPIResponse from "../utils/openai.js";
 
 const router = express.Router();
 
+// Health check / Wakeup endpoint
+router.get("/ping", (req, res) => {
+    res.json({ status: "ok", time: new Date() });
+});
+
 //test
 router.post("/test", async(req, res) => {
     try {
