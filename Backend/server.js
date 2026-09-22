@@ -18,6 +18,10 @@ app.listen(PORT, () => {
 });
 
 const connectDB = async () => {
+    if (!process.env.MONGODB_URI) {
+        console.log("ℹ️ MONGODB_URI not provided. Operating with in-memory storage.");
+        return;
+    }
     try {
         await mongoose.connect(process.env.MONGODB_URI);
         console.log("✅ Connected to MongoDB!");

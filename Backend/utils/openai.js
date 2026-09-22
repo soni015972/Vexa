@@ -2,22 +2,33 @@ import "dotenv/config";
 
 const getOpenAIAPIResponse = async (message) => {
     // Option 1: Google Gemini API (Free tier available)
-    if (process.env.GEMINI_API_KEY) {
-        try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
-            const response = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: message }] }]
-                })
-            });
-            const data = await response.json();
-            if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-                return data.candidates[0].content.parts[0].text;
+    const geminiKey = process.env.GEMINI_API_KEY?.trim()?.replace(/^["']|["']$/g, "");
+    let geminiError = null;
+
+    if (geminiKey) {
+        const models = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
+        for (const model of models) {
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: message }] }]
+                    })
+                });
+                const data = await response.json();
+                if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+                    return data.candidates[0].content.parts[0].text;
+                }
+                if (data.error) {
+                    geminiError = data.error.message || JSON.stringify(data.error);
+                    console.error(`Gemini (${model}) API error:`, geminiError);
+                }
+            } catch (err) {
+                geminiError = err.message;
+                console.error(`Gemini (${model}) error:`, err);
             }
-        } catch (err) {
-            console.error("Gemini API error:", err);
         }
     }
 
@@ -67,7 +78,16 @@ const getOpenAIAPIResponse = async (message) => {
         }
     }
 
-    // Fallback Mock Assistant when no API key is configured yet
+    // If Gemini key was provided but failed
+    if (geminiKey) {
+        return `Hello! I am **Vexa** ✦. 
+
+⚠️ **Gemini API Error**: ${geminiError || "Could not generate response from Gemini API"}.
+
+Please verify your \`GEMINI_API_KEY\` in your Render Environment variables.`;
+    }
+
+    // Fallback Mock Assistant when no AI key is configured yet
     return `Hello! I am **Vexa** ✦. 
 
 I received your message: *" ${message} "*
