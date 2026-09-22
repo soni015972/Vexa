@@ -22,7 +22,8 @@ function ChatWindow() {
             },
             body: JSON.stringify({
                 message: prompt,
-                threadId: currThreadId
+                threadId: currThreadId,
+                history: prevChats
             })
         };
 

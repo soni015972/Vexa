@@ -44,12 +44,39 @@ async function getAvailableGeminiModels(geminiKey) {
     ];
 }
 
-const getOpenAIAPIResponse = async (message) => {
+const getOpenAIAPIResponse = async (message, history = []) => {
     // Option 1: Google Gemini API (Free tier available)
     const geminiKey = process.env.GEMINI_API_KEY?.trim()?.replace(/^["']|["']$/g, "");
     let geminiError = null;
 
     if (geminiKey) {
+        // Build multi-turn conversational history for Gemini
+        const geminiContents = [];
+        if (Array.isArray(history)) {
+            for (const item of history.slice(-10)) {
+                if (!item.content || typeof item.content !== "string") continue;
+                const role = (item.role === "assistant" || item.role === "model") ? "model" : "user";
+                if (geminiContents.length > 0 && geminiContents[geminiContents.length - 1].role === role) {
+                    geminiContents[geminiContents.length - 1].parts[0].text += `\n${item.content}`;
+                } else {
+                    geminiContents.push({
+                        role: role,
+                        parts: [{ text: item.content }]
+                    });
+                }
+            }
+        }
+
+        // Append current user message
+        if (geminiContents.length > 0 && geminiContents[geminiContents.length - 1].role === "user") {
+            geminiContents[geminiContents.length - 1].parts[0].text += `\n${message}`;
+        } else {
+            geminiContents.push({
+                role: "user",
+                parts: [{ text: message }]
+            });
+        }
+
         const models = workingModel ? [workingModel] : await getAvailableGeminiModels(geminiKey);
         const versionsToTry = workingModel ? [workingApiVer] : ["v1beta", "v1"];
 
@@ -62,9 +89,9 @@ const getOpenAIAPIResponse = async (message) => {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                             system_instruction: {
-                                parts: [{ text: "You are Vexa, an intelligent, friendly, and helpful AI assistant. Always answer directly, clearly, and concisely in clean markdown. Never show internal brainstorming, scratchpad notes, draft options, or meta-commentary." }]
+                                parts: [{ text: "You are Vexa, an intelligent, friendly, and helpful AI assistant. Always answer directly, clearly, and concisely in clean markdown. Remember and reference previous conversation context naturally when relevant. Never show internal brainstorming, scratchpad notes, draft options, or meta-commentary." }]
                             },
-                            contents: [{ parts: [{ text: message }] }]
+                            contents: geminiContents
                         })
                     });
                     const data = await response.json();

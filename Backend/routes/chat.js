@@ -82,14 +82,30 @@ router.delete("/thread/:threadId", async (req, res) => {
 });
 
 router.post("/chat", async (req, res) => {
-    const { threadId, message } = req.body;
+    const { threadId, message, history: clientHistory } = req.body;
 
     if (!threadId || !message) {
         return res.status(400).json({ error: "missing required fields" });
     }
 
     try {
-        const assistantReply = await getOpenAIAPIResponse(message);
+        // Collect conversation history
+        let conversationHistory = [];
+        if (Array.isArray(clientHistory) && clientHistory.length > 0) {
+            conversationHistory = clientHistory;
+        } else if (Thread.db?.readyState === 1) {
+            const existingThread = await Thread.findOne({ threadId });
+            if (existingThread && existingThread.messages) {
+                conversationHistory = existingThread.messages;
+            }
+        } else {
+            const existingThread = inMemoryThreads.find(t => t.threadId === threadId);
+            if (existingThread && existingThread.messages) {
+                conversationHistory = existingThread.messages;
+            }
+        }
+
+        const assistantReply = await getOpenAIAPIResponse(message, conversationHistory);
 
         if (Thread.db?.readyState === 1) {
             let thread = await Thread.findOne({ threadId });
