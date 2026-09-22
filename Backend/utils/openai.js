@@ -1,17 +1,43 @@
 import "dotenv/config";
 
+let discoveredModels = null;
+
+async function getAvailableGeminiModels(geminiKey) {
+    if (discoveredModels && discoveredModels.length > 0) return discoveredModels;
+    try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
+        const data = await res.json();
+        if (data.models && Array.isArray(data.models)) {
+            const valid = data.models
+                .filter(m => m.supportedGenerationMethods?.includes("generateContent"))
+                .map(m => m.name.replace(/^models\//, ""));
+            if (valid.length > 0) {
+                console.log("Discovered active Gemini models:", valid);
+                discoveredModels = valid;
+                return valid;
+            }
+        } else if (data.error) {
+            console.error("ListModels API error:", data.error.message || data.error);
+        }
+    } catch (err) {
+        console.error("Failed to list Gemini models:", err);
+    }
+    return [
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gemini-1.5-flash-8b",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro"
+    ];
+}
+
 const getOpenAIAPIResponse = async (message) => {
     // Option 1: Google Gemini API (Free tier available)
     const geminiKey = process.env.GEMINI_API_KEY?.trim()?.replace(/^["']|["']$/g, "");
     let geminiError = null;
 
     if (geminiKey) {
-        const models = [
-            "gemini-2.5-flash",
-            "gemini-2.5-pro",
-            "gemini-flash-latest",
-            "gemini-pro-latest"
-        ];
+        const models = await getAvailableGeminiModels(geminiKey);
         for (const model of models) {
             for (const apiVer of ["v1beta", "v1"]) {
                 try {
@@ -28,8 +54,8 @@ const getOpenAIAPIResponse = async (message) => {
                         return data.candidates[0].content.parts[0].text;
                     }
                     if (data.error) {
-                        geminiError = data.error.message || JSON.stringify(data.error);
-                        console.error(`Gemini (${model} ${apiVer}) error:`, geminiError);
+                        geminiError = `(${model}) ${data.error.message || JSON.stringify(data.error)}`;
+                        console.error(`Gemini (${model} ${apiVer}) error:`, data.error.message || data.error);
                     }
                 } catch (err) {
                     geminiError = err.message;
