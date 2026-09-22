@@ -1,8 +1,11 @@
 import "dotenv/config";
 
 let discoveredModels = null;
+let workingModel = null;
+let workingApiVer = "v1beta";
 
 async function getAvailableGeminiModels(geminiKey) {
+    if (workingModel) return [workingModel];
     if (discoveredModels && discoveredModels.length > 0) return discoveredModels;
     try {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
@@ -10,9 +13,20 @@ async function getAvailableGeminiModels(geminiKey) {
         if (data.models && Array.isArray(data.models)) {
             const valid = data.models
                 .filter(m => m.supportedGenerationMethods?.includes("generateContent"))
-                .map(m => m.name.replace(/^models\//, ""));
+                .map(m => m.name.replace(/^models\//, ""))
+                // Exclude TTS, audio, embedding, and image-only models
+                .filter(name => !name.includes("tts") && !name.includes("embedding") && !name.includes("imagen"));
+
             if (valid.length > 0) {
-                console.log("Discovered active Gemini models:", valid);
+                // Prioritize recommended flash models
+                valid.sort((a, b) => {
+                    if (a.includes("3.0-flash") || a.includes("3-flash")) return -1;
+                    if (b.includes("3.0-flash") || b.includes("3-flash")) return 1;
+                    if (a.includes("flash")) return -1;
+                    if (b.includes("flash")) return 1;
+                    return 0;
+                });
+                console.log("Filtered chat Gemini models:", valid);
                 discoveredModels = valid;
                 return valid;
             }
@@ -23,11 +37,10 @@ async function getAvailableGeminiModels(geminiKey) {
         console.error("Failed to list Gemini models:", err);
     }
     return [
+        "gemini-3.0-flash",
         "gemini-2.5-flash",
-        "gemini-2.5-pro",
         "gemini-1.5-flash-8b",
-        "gemini-1.5-flash",
-        "gemini-1.5-pro"
+        "gemini-1.5-flash"
     ];
 }
 
@@ -37,20 +50,28 @@ const getOpenAIAPIResponse = async (message) => {
     let geminiError = null;
 
     if (geminiKey) {
-        const models = await getAvailableGeminiModels(geminiKey);
+        const models = workingModel ? [workingModel] : await getAvailableGeminiModels(geminiKey);
+        const versionsToTry = workingModel ? [workingApiVer] : ["v1beta", "v1"];
+
         for (const model of models) {
-            for (const apiVer of ["v1beta", "v1"]) {
+            for (const apiVer of versionsToTry) {
                 try {
                     const url = `https://generativelanguage.googleapis.com/${apiVer}/models/${model}:generateContent?key=${geminiKey}`;
                     const response = await fetch(url, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
+                            system_instruction: {
+                                parts: [{ text: "You are Vexa, an intelligent, friendly, and helpful AI assistant. Always answer directly, clearly, and concisely in clean markdown. Never show internal brainstorming, scratchpad notes, draft options, or meta-commentary." }]
+                            },
                             contents: [{ parts: [{ text: message }] }]
                         })
                     });
                     const data = await response.json();
                     if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+                        // Cache the fast working model and API version
+                        workingModel = model;
+                        workingApiVer = apiVer;
                         return data.candidates[0].content.parts[0].text;
                     }
                     if (data.error) {
