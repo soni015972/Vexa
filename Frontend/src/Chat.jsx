@@ -35,33 +35,24 @@ function Chat() {
             {newChat && <h1>✦ Start a New Chat!</h1>}
 
             {
-                prevChats?.slice(0, -1).map((chat, idx) => 
-                    <div className={chat.role === "user" ? "userDiv" : "gptDiv"} key={idx}>
-                        {
-                            chat.role === "user" ? 
-                            <p className="userMessage">{chat.content}</p> : 
-                            <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{chat.content}</ReactMarkdown>
-                        }
-                    </div>
-                )
-            }
-
-            {
-                prevChats.length > 0 && (
-                    <>
-                        {
-                            latestReply === null ? (
-                                <div className="gptDiv" key={"non-typing"}>
-                                    <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{prevChats[prevChats.length-1].content}</ReactMarkdown>
-                                </div>
-                            ) : (
-                                <div className="gptDiv" key={"typing"}>
-                                    <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{latestReply}</ReactMarkdown>
-                                </div>
-                            )
-                        }
-                    </>
-                )
+                prevChats?.map((chat, idx) => {
+                    const isLast = idx === prevChats.length - 1;
+                    if (chat.role === "user") {
+                        return (
+                            <div className="userDiv" key={idx}>
+                                <p className="userMessage">{chat.content}</p>
+                            </div>
+                        );
+                    } else {
+                        return (
+                            <div className="gptDiv" key={idx}>
+                                <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
+                                    {isLast && latestReply !== null ? latestReply : chat.content}
+                                </ReactMarkdown>
+                            </div>
+                        );
+                    }
+                })
             }
         </div>
     )

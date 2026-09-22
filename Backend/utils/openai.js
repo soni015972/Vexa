@@ -44,11 +44,25 @@ async function getAvailableGeminiModels(geminiKey) {
     ];
 }
 
-const FAST_MODELS = [
-    "gemini-3.0-flash",
-    "gemini-2.5-flash",
-    "gemini-1.5-flash"
-];
+async function callGeminiModel(model, geminiKey, geminiContents) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+    const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(6000),
+        body: JSON.stringify({
+            system_instruction: {
+                parts: [{ text: "You are Vexa, an intelligent, friendly, and helpful AI assistant. Always answer directly, clearly, and concisely in clean markdown. Remember and reference previous conversation context naturally when relevant. Never show internal brainstorming, scratchpad notes, draft options, or meta-commentary." }]
+            },
+            contents: geminiContents
+        })
+    });
+    const data = await response.json();
+    if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+        return { text: data.candidates[0].content.parts[0].text, model };
+    }
+    throw new Error(data.error?.message || `Model ${model} returned no text`);
+}
 
 const getOpenAIAPIResponse = async (message, history = []) => {
     // Option 1: Google Gemini API (Free tier available)
@@ -83,36 +97,35 @@ const getOpenAIAPIResponse = async (message, history = []) => {
             });
         }
 
-        // Fast path: Try working model first, or fast top models
-        const modelsToTry = workingModel ? [workingModel] : FAST_MODELS;
-
-        for (const model of modelsToTry) {
+        // Fast path: if a working model is already locked, use it directly
+        if (workingModel) {
             try {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
-                const response = await fetch(url, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    signal: AbortSignal.timeout(7000),
-                    body: JSON.stringify({
-                        system_instruction: {
-                            parts: [{ text: "You are Vexa, an intelligent, friendly, and helpful AI assistant. Always answer directly, clearly, and concisely in clean markdown. Remember and reference previous conversation context naturally when relevant. Never show internal brainstorming, scratchpad notes, draft options, or meta-commentary." }]
-                        },
-                        contents: geminiContents
-                    })
-                });
-                const data = await response.json();
-                if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-                    workingModel = model;
-                    return data.candidates[0].content.parts[0].text;
-                }
-                if (data.error) {
-                    geminiError = `(${model}) ${data.error.message || JSON.stringify(data.error)}`;
-                    console.error(`Gemini (${model}) error:`, data.error.message || data.error);
-                }
+                const res = await callGeminiModel(workingModel, geminiKey, geminiContents);
+                return res.text;
             } catch (err) {
-                geminiError = err.message;
-                console.error(`Gemini (${model}) network error:`, err);
+                console.warn(`Working model ${workingModel} failed, re-probing candidates...`);
+                workingModel = null;
             }
+        }
+
+        // Parallel Race: query top models concurrently, fastest one wins instantly!
+        const candidateModels = [
+            "gemini-3.0-flash",
+            "gemini-2.5-flash",
+            "gemini-1.5-flash",
+            "gemini-1.5-flash-8b"
+        ];
+
+        try {
+            const winner = await Promise.any(
+                candidateModels.map(m => callGeminiModel(m, geminiKey, geminiContents))
+            );
+            workingModel = winner.model;
+            console.log("===> FASTEST MODEL LOCKED:", workingModel);
+            return winner.text;
+        } catch (err) {
+            console.error("All fast Gemini candidates failed:", err);
+            geminiError = err.errors ? err.errors.map(e => e.message).join("; ") : err.message;
         }
     }
 

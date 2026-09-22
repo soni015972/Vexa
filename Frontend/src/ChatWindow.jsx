@@ -12,6 +12,16 @@ function ChatWindow() {
     const BACKEND_URL = import.meta.env.VITE_API_URL || "https://vexa-rb09.onrender.com";
 
     const getReply = async () => {
+        const userMessage = prompt.trim();
+        if (!userMessage || loading) return;
+
+        // 1. Instantly clear the input box
+        setPrompt("");
+
+        // 2. Instantly show the user's message in the chat
+        setPrevChats(prev => [...prev, { role: "user", content: userMessage }]);
+
+        // 3. Set loading state
         setLoading(true);
         setNewChat(false);
 
@@ -21,7 +31,7 @@ function ChatWindow() {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                message: prompt,
+                message: userMessage,
                 threadId: currThreadId,
                 history: prevChats
             })
@@ -31,27 +41,15 @@ function ChatWindow() {
             const response = await fetch(`${BACKEND_URL}/api/chat`, options);
             const res = await response.json();
             setReply(res.reply);
+            setPrevChats(prev => [...prev, { role: "assistant", content: res.reply }]);
         } catch(err) {
             console.log(err);
+            const errMsg = "Sorry, failed to get a response. Please check your connection.";
+            setReply(errMsg);
+            setPrevChats(prev => [...prev, { role: "assistant", content: errMsg }]);
         }
         setLoading(false);
     }
-
-    // Append new chat to prevChats
-    useEffect(() => {
-        if(prompt && reply) {
-            setPrevChats(prevChats => (
-                [...prevChats, {
-                    role: "user",
-                    content: prompt
-                },{
-                    role: "assistant",
-                    content: reply
-                }]
-            ));
-        }
-        setPrompt("");
-    }, [reply]);
 
     const handleProfileClick = () => {
         setIsOpen(!isOpen);
