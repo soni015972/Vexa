@@ -44,6 +44,12 @@ async function getAvailableGeminiModels(geminiKey) {
     ];
 }
 
+const FAST_MODELS = [
+    "gemini-3.0-flash",
+    "gemini-2.5-flash",
+    "gemini-1.5-flash"
+];
+
 const getOpenAIAPIResponse = async (message, history = []) => {
     // Option 1: Google Gemini API (Free tier available)
     const geminiKey = process.env.GEMINI_API_KEY?.trim()?.replace(/^["']|["']$/g, "");
@@ -77,38 +83,35 @@ const getOpenAIAPIResponse = async (message, history = []) => {
             });
         }
 
-        const models = workingModel ? [workingModel] : await getAvailableGeminiModels(geminiKey);
-        const versionsToTry = workingModel ? [workingApiVer] : ["v1beta", "v1"];
+        // Fast path: Try working model first, or fast top models
+        const modelsToTry = workingModel ? [workingModel] : FAST_MODELS;
 
-        for (const model of models) {
-            for (const apiVer of versionsToTry) {
-                try {
-                    const url = `https://generativelanguage.googleapis.com/${apiVer}/models/${model}:generateContent?key=${geminiKey}`;
-                    const response = await fetch(url, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            system_instruction: {
-                                parts: [{ text: "You are Vexa, an intelligent, friendly, and helpful AI assistant. Always answer directly, clearly, and concisely in clean markdown. Remember and reference previous conversation context naturally when relevant. Never show internal brainstorming, scratchpad notes, draft options, or meta-commentary." }]
-                            },
-                            contents: geminiContents
-                        })
-                    });
-                    const data = await response.json();
-                    if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-                        // Cache the fast working model and API version
-                        workingModel = model;
-                        workingApiVer = apiVer;
-                        return data.candidates[0].content.parts[0].text;
-                    }
-                    if (data.error) {
-                        geminiError = `(${model}) ${data.error.message || JSON.stringify(data.error)}`;
-                        console.error(`Gemini (${model} ${apiVer}) error:`, data.error.message || data.error);
-                    }
-                } catch (err) {
-                    geminiError = err.message;
-                    console.error(`Gemini (${model} ${apiVer}) network error:`, err);
+        for (const model of modelsToTry) {
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    signal: AbortSignal.timeout(7000),
+                    body: JSON.stringify({
+                        system_instruction: {
+                            parts: [{ text: "You are Vexa, an intelligent, friendly, and helpful AI assistant. Always answer directly, clearly, and concisely in clean markdown. Remember and reference previous conversation context naturally when relevant. Never show internal brainstorming, scratchpad notes, draft options, or meta-commentary." }]
+                        },
+                        contents: geminiContents
+                    })
+                });
+                const data = await response.json();
+                if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+                    workingModel = model;
+                    return data.candidates[0].content.parts[0].text;
                 }
+                if (data.error) {
+                    geminiError = `(${model}) ${data.error.message || JSON.stringify(data.error)}`;
+                    console.error(`Gemini (${model}) error:`, data.error.message || data.error);
+                }
+            } catch (err) {
+                geminiError = err.message;
+                console.error(`Gemini (${model}) network error:`, err);
             }
         }
     }

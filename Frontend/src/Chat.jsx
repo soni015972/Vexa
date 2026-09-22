@@ -24,7 +24,7 @@ function Chat() {
             setLatestReply(content.slice(0, idx+1).join(" "));
             idx++;
             if(idx >= content.length) clearInterval(interval);
-        }, 40);
+        }, 15);
 
         return () => clearInterval(interval);
 
