@@ -24,8 +24,8 @@ function Chat() {
 
         const content = reply.split(" ");
         let idx = 0;
-        // Adaptive speed: reveal in smooth chunks so animation completes in < 500ms
-        const step = Math.max(1, Math.ceil(content.length / 35));
+        // Ultra-fast snappy reveal: completes in ~150ms
+        const step = Math.max(3, Math.ceil(content.length / 20));
         const interval = setInterval(() => {
             idx += step;
             if (idx >= content.length) {
@@ -34,7 +34,7 @@ function Chat() {
             } else {
                 setLatestReply(content.slice(0, idx).join(" "));
             }
-        }, 12);
+        }, 8);
 
         return () => clearInterval(interval);
 

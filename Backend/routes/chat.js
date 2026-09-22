@@ -112,44 +112,52 @@ router.post("/chat", async (req, res) => {
 
         const assistantReply = await getOpenAIAPIResponse(message, conversationHistory);
 
-        if (Thread.db?.readyState === 1) {
-            let thread = await Thread.findOne({ threadId });
-
-            if (!thread) {
-                thread = new Thread({
-                    threadId,
-                    title: message.length > 30 ? message.slice(0, 30) + "..." : message,
-                    messages: [{ role: "user", content: message }]
-                });
-            } else {
-                thread.messages.push({ role: "user", content: message });
-            }
-
-            thread.messages.push({ role: "assistant", content: assistantReply });
-            thread.updatedAt = new Date();
-            await thread.save();
-        } else {
-            // In-memory storage when MongoDB is not connected
-            let thread = inMemoryThreads.find(t => t.threadId === threadId);
-            if (!thread) {
-                thread = {
-                    threadId,
-                    title: message.length > 30 ? message.slice(0, 30) + "..." : message,
-                    messages: [
-                        { role: "user", content: message },
-                        { role: "assistant", content: assistantReply }
-                    ],
-                    updatedAt: new Date()
-                };
-                inMemoryThreads.unshift(thread);
-            } else {
-                thread.messages.push({ role: "user", content: message });
-                thread.messages.push({ role: "assistant", content: assistantReply });
-                thread.updatedAt = new Date();
-            }
-        }
-
+        // Return reply immediately to user for instant response
         res.json({ reply: assistantReply });
+
+        // Save conversation to MongoDB in the background without blocking the user
+        (async () => {
+            try {
+                if (Thread.db?.readyState === 1) {
+                    let thread = await Thread.findOne({ threadId });
+
+                    if (!thread) {
+                        thread = new Thread({
+                            threadId,
+                            title: message.length > 30 ? message.slice(0, 30) + "..." : message,
+                            messages: [{ role: "user", content: message }]
+                        });
+                    } else {
+                        thread.messages.push({ role: "user", content: message });
+                    }
+
+                    thread.messages.push({ role: "assistant", content: assistantReply });
+                    thread.updatedAt = new Date();
+                    await thread.save();
+                } else {
+                    // In-memory storage when MongoDB is not connected
+                    let thread = inMemoryThreads.find(t => t.threadId === threadId);
+                    if (!thread) {
+                        thread = {
+                            threadId,
+                            title: message.length > 30 ? message.slice(0, 30) + "..." : message,
+                            messages: [
+                                { role: "user", content: message },
+                                { role: "assistant", content: assistantReply }
+                            ],
+                            updatedAt: new Date()
+                        };
+                        inMemoryThreads.unshift(thread);
+                    } else {
+                        thread.messages.push({ role: "user", content: message });
+                        thread.messages.push({ role: "assistant", content: assistantReply });
+                        thread.updatedAt = new Date();
+                    }
+                }
+            } catch (saveErr) {
+                console.error("Background thread save error:", saveErr);
+            }
+        })();
     } catch (err) {
         console.log("Chat error:", err);
         res.status(500).json({ error: "something went wrong" });

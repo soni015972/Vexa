@@ -1,7 +1,7 @@
 import "dotenv/config";
 
 let discoveredModels = null;
-let workingModel = null;
+let workingModel = "gemini-3.6-flash";
 let workingApiVer = "v1beta";
 
 async function getAvailableGeminiModels(geminiKey) {
